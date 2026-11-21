@@ -2,8 +2,10 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 import sys
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+SITE_URL = "https://kanarafat54-boop.github.io"
 HTML_FILES = sorted(ROOT.rglob("*.html"))
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
 
@@ -85,8 +87,36 @@ for file, parser in parsed.items():
             if target_parser and unquote(parts.fragment) not in target_parser.ids:
                 failed.append(f"{file.relative_to(ROOT)}: missing anchor #{parts.fragment} in {target.relative_to(ROOT)}")
 
+# Keep every published HTML page discoverable by search-engine crawlers.
+sitemap_path = ROOT / "sitemap.xml"
+try:
+    sitemap = ET.parse(sitemap_path).getroot()
+    namespace = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+    sitemap_urls = {
+        node.text.strip()
+        for node in sitemap.findall("sm:url/sm:loc", namespace)
+        if node.text and node.text.strip()
+    }
+    expected_urls = set()
+    for file in HTML_FILES:
+        relative = file.relative_to(ROOT)
+        route = "/" if relative.as_posix() == "index.html" else f"/{relative.parent.as_posix().rstrip('/')}/"
+        expected_urls.add(f"{SITE_URL}{route}")
+    for url in sorted(expected_urls - sitemap_urls):
+        failed.append(f"sitemap.xml: missing page URL: {url}")
+except (ET.ParseError, OSError) as exc:
+    failed.append(f"sitemap.xml: unable to parse sitemap: {exc}")
+
+robots_path = ROOT / "robots.txt"
+try:
+    robots = robots_path.read_text(encoding="utf-8")
+    if f"Sitemap: {SITE_URL}/sitemap.xml" not in robots:
+        failed.append("robots.txt: missing sitemap declaration")
+except OSError as exc:
+    failed.append(f"robots.txt: unable to read robots file: {exc}")
+
 if failed:
-    print("\n".join(f"FAIL: {item}" for item in failed))
+    print("\\n".join(f"FAIL: {item}" for item in failed))
     sys.exit(1)
 
-print(f"PASS: validated {len(HTML_FILES)} HTML page(s), page titles, heading structure, local links, assets and anchors.")
+print(f"PASS: validated {len(HTML_FILES)} HTML page(s), page titles, heading structure, local links, assets, anchors and sitemap coverage.")
