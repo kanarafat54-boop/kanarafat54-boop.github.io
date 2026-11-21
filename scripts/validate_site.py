@@ -9,6 +9,7 @@ SITE_URL = "https://kanarafat54-boop.github.io"
 HTML_FILES = sorted(ROOT.rglob("*.html"))
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
 
+
 class PageParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -50,6 +51,7 @@ class PageParser(HTMLParser):
     def handle_data(self, data):
         if self.in_title:
             self.title += data.strip()
+
 
 failed = []
 parsed = {}
@@ -100,7 +102,10 @@ try:
     expected_urls = set()
     for file in HTML_FILES:
         relative = file.relative_to(ROOT)
-        route = "/" if relative.as_posix() == "index.html" else f"/{relative.parent.as_posix().rstrip('/')}/"
+        if relative.name == "index.html":
+            route = "/" if relative.parent == Path(".") else f"/{relative.parent.as_posix().rstrip('/')}/"
+        else:
+            route = f"/{relative.as_posix()}"
         expected_urls.add(f"{SITE_URL}{route}")
     for url in sorted(expected_urls - sitemap_urls):
         failed.append(f"sitemap.xml: missing page URL: {url}")
@@ -116,7 +121,7 @@ except OSError as exc:
     failed.append(f"robots.txt: unable to read robots file: {exc}")
 
 if failed:
-    print("\\n".join(f"FAIL: {item}" for item in failed))
+    print("\n".join(f"FAIL: {item}" for item in failed))
     sys.exit(1)
 
 print(f"PASS: validated {len(HTML_FILES)} HTML page(s), page titles, heading structure, local links, assets, anchors and sitemap coverage.")
