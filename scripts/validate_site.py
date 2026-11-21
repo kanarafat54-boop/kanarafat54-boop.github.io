@@ -121,7 +121,7 @@ except OSError as exc:
     failed.append(f"robots.txt: unable to read robots file: {exc}")
 
 if failed:
-    print("\\n".join(f"FAIL: {item}" for item in failed))
+    print("\n".join(f"FAIL: {item}" for item in failed))
     sys.exit(1)
 
 print(f"PASS: validated {len(HTML_FILES)} HTML page(s), page titles, heading structure, local links, assets, anchors and sitemap coverage.")
